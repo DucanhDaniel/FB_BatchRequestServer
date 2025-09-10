@@ -2,7 +2,6 @@ import json
 import requests
 from typing import List, Dict, Any
 import uvicorn
-from pyngrok import ngrok
 import sys
 
 from fastapi import FastAPI, Query, HTTPException, Body
