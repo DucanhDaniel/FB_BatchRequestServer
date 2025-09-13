@@ -4,6 +4,8 @@ from typing import List, Dict, Any
 
 from fastapi import FastAPI, Query, HTTPException, Body
 from pydantic import BaseModel, Field, field_validator
+from models import BatchRequest
+from logging import _log_sub_request_headers
 
 # --- CẤU HÌNH ---
 API_VERSION = "v23.0"
@@ -14,25 +16,6 @@ app = FastAPI(
     description="API client gửi batch requests đến Facebook Graph API (expose qua ngrok/uvicorn).",
     version="1.2.0",
 )
-
-# --- Pydantic models ---
-class BatchRequest(BaseModel):
-    access_token: str = Field(..., description="Facebook Graph API Access Token", examples=["EAAB..."])
-    relative_urls: List[str] = Field(
-        ...,
-        description="Danh sách URL tương đối (tối đa 50), KHÔNG chứa version (v23.0).",
-        examples=[[
-            "act_123456789/ads?fields=id,name&limit=5",
-            "act_123456789/campaigns?fields=id,name,objective&limit=5",
-            "act_123456789/adsets?fields=id,name&limit=5"
-        ]]
-    )
-
-    @field_validator("relative_urls")
-    def validate_urls(cls, v):
-        if not 1 <= len(v) <= 50:
-            raise ValueError(f"Số lượng URL phải từ 1 đến 50. Hiện tại là {len(v)}.")
-        return v
 
 # --- LÕI GỬI BATCH ---
 def send_batch_to_facebook(
@@ -71,6 +54,7 @@ def send_batch_to_facebook(
 
     try:
         resp = requests.post(api_url, data=payload, timeout=timeout_sec)
+        
         resp.raise_for_status()
     except requests.exceptions.RequestException as e:
         raise RuntimeError(f"Lỗi khi gọi đến Facebook API: {e}") from e
@@ -105,6 +89,14 @@ def send_batch_to_facebook(
             result_item["error"] = "Kết quả NULL (yêu cầu có thể thất bại hoặc bị bỏ qua)."
             processed_results.append(result_item)
             continue
+        
+
+        _log_sub_request_headers(
+            request_index=i, 
+            requested_url=result_item['requested_url'], 
+            headers_list=item.get("headers", [])
+        )
+
 
         result_item["status_code"] = item.get("code")
         body_text = item.get("body", "")
