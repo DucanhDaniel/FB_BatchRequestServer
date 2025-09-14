@@ -2,17 +2,18 @@ import json
 import requests
 from typing import List, Dict, Any
 from collections import defaultdict
-
 from fastapi import FastAPI, Query, HTTPException, Body, Request
-from pydantic import BaseModel, Field, field_validator
 from models import BatchRequest, RateLimitResponse
 from app_logging import _log_sub_request_headers, log_sub_request, log_batch_summary, log_batch_start, setup_logging
 import time
 import uuid
+import logging
+
 
 # --- CẤU HÌNH ---
 API_VERSION = "v23.0"
 setup_logging()
+logger = logging.getLogger("FacebookBatchApp") # Lấy logger instance
 # --- KHỞI TẠO ỨNG DỤNG FASTAPI ---S
 app = FastAPI(
     title="Facebook Batch Request API",
@@ -275,33 +276,85 @@ def summarize_rate_limits(all_sub_request_headers: List[List[Dict[str, Any]]]) -
         "account_details": summary_list # Trả về một list thay vì dict
     }
     
+
+
 @app.get("/rate_limit", response_model=RateLimitResponse)
 async def get_facebook_rate_limit(
     access_token: str = Query(..., description="Access Token Facebook."),
-    ad_account_ids: List[str] = Query(..., description="Danh sách ID tài khoản quảng cáo.")
+    ad_account_ids: List[str] = Query(..., description="Danh sách ID tài khoản quảng cáo."),
+    http_request: Request = None # Thêm http_request để lấy IP client
 ):
     """
     Kiểm tra nhanh giới hạn rate limit cho một danh sách tài khoản quảng cáo.
     """
-    if not ad_account_ids:
-        raise HTTPException(status_code=400, detail="Vui lòng cung cấp ít nhất một ID tài khoản quảng cáo.")
+    # 1. Khởi tạo các biến cho việc logging
+    request_id = str(uuid.uuid4())
+    start_time = time.time()
+    client_ip = http_request.client.host if http_request else "unknown"
+    batch_size = len(ad_account_ids)
 
-    # Tạo các request nhẹ để "khơi mào" API và lấy header
-    relative_urls = [f"{acc_id}/insights?fields=account_id&limit=1" for acc_id in ad_account_ids]
+    # Ghi log sự kiện bắt đầu
+    log_batch_start(request_id, client_ip, batch_size)
+
+    # Khởi tạo các biến trạng thái
+    status = "UNKNOWN"
+    summary_data = {}
+    success_count = 0
+    error_count = 0
 
     try:
-        request_id = str(uuid.uuid4())
-        results, err_counter, all_headers = send_batch_to_facebook(relative_urls, access_token, request_id, get_header=True)
-        summary = summarize_rate_limits(all_headers)
-        print(summary)
+        if not ad_account_ids:
+            status = "CLIENT_ERROR"
+            raise HTTPException(status_code=400, detail="Vui lòng cung cấp ít nhất một ID tài khoản quảng cáo.")
+
+        # Tạo các request nhẹ để "khơi mào" API và lấy header
+        relative_urls = [f"{acc_id}/insights?fields=account_id&limit=1" for acc_id in ad_account_ids]
+
+        # Gọi hàm send_batch và nhận kết quả
+        # Giả sử hàm trả về (results, summary, all_headers)
+        _results, summary, all_headers = send_batch_to_facebook(
+            relative_urls, access_token, request_id, get_header=True
+        )
+        
+        # Lấy số lượng thành công/thất bại từ kết quả trả về
+        success_count = summary.get("success_count", 0)
+        error_count = summary.get("error_count", 0)
+
+        # Xử lý thông tin rate limit
+        summary_data = summarize_rate_limits(all_headers)
+        
+        status = "SUCCESS"
         return RateLimitResponse(
-            summary = summary,
+            summary=summary_data,
             message="Truy vấn thành công."
         )
+    
+    except HTTPException:
+        # Re-raise HTTPException để FastAPI xử lý, status đã được set ở trên
+        raise
+        
     except Exception as e:
-        print(f"Internal error in /rate_limit: {e}")
+        status = "INTERNAL_ERROR"
+        # Ghi log lỗi chi tiết ra file log để gỡ lỗi
+        logger.error(
+            f"Internal error in /rate_limit: {e}", 
+            exc_info=True, # Thêm traceback vào log
+            extra={"request_id": request_id}
+        )
         raise HTTPException(status_code=500, detail=f"Internal Server Error: {str(e)}")
-
+        
+    finally:
+        # 3. Luôn luôn ghi log tóm tắt kết quả ở cuối
+        log_batch_summary(
+            request_id=request_id,
+            start_time=start_time,
+            client_ip=client_ip,
+            overall_status=status,
+            success_count=success_count,
+            error_count=error_count,
+            batch_size=batch_size
+        )
+        
 import uvicorn
 if __name__ == "__main__":
     uvicorn.run("test:app", host = "0.0.0.0", port = 8000)
