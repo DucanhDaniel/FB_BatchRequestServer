@@ -146,6 +146,11 @@ def setup_logging():
             "level": "INFO",
             "handlers": ["json_file"]
         },
+        "watchfiles": {
+            "handlers": ["json_file"], # Gửi log của nó vào cùng file (tùy chọn)
+            "level": "WARNING",       # Chỉ hiển thị log WARNING trở lên
+            "propagate": False
+        }
     })
 
 # Tạo một logger instance để sử dụng trong module này
