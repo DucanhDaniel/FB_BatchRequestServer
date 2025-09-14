@@ -1,8 +1,11 @@
 from typing import List
+import glob, json, os
 from fastapi import FastAPI, Query, HTTPException, Body, Request
+from fastapi.staticfiles import StaticFiles
 from models import BatchRequest, RateLimitResponse
 from app_logging import log_batch_summary, log_batch_start, setup_logging
 from facebook_logic import send_batch_to_facebook, summarize_rate_limits
+from fastapi.responses import HTMLResponse
 import time
 import uuid
 import logging
@@ -10,6 +13,7 @@ import logging
 
 # --- CẤU HÌNH ---
 API_VERSION = "v23.0"
+LOG_DIR = os.getenv("LOG_DIR", "logs")
 setup_logging()
 logger = logging.getLogger("FacebookBatchApp") # Lấy logger instance
 # --- KHỞI TẠO ỨNG DỤNG FASTAPI ---S
@@ -18,6 +22,8 @@ app = FastAPI(
     description="API client gửi batch requests đến Facebook Graph API (expose qua ngrok/uvicorn).",
     version="1.2.0",
 )
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
 
 # --- ENDPOINTS ---
 # GET: tiện test nhanh (chú ý giới hạn độ dài URL khi nhiều params)
@@ -165,6 +171,35 @@ async def get_facebook_rate_limit(
             error_count=error_count,
             batch_size=batch_size
         )
+        
+# [ENDPOINT MỚI] Phục vụ trang dashboard
+@app.get("/dashboard", response_class=HTMLResponse)
+async def get_dashboard():
+    with open("static/dashboard.html", "r", encoding="utf-8") as f:
+        return HTMLResponse(content=f.read(), status_code=200)
+
+# [ENDPOINT MỚI] Cung cấp dữ liệu log
+@app.get("/logs", summary="Đọc và trả về dữ liệu từ các file log")
+async def get_logs():
+    all_log_entries = []
+    # Tìm tất cả các file có đuôi .log trong thư mục logs
+    log_files = glob.glob(f"{LOG_DIR}/*.json")
+    
+    for file_path in log_files:
+        try:
+            with open(file_path, 'r', encoding='utf-8') as f:
+                for line in f:
+                    try:
+                        # Giả sử mỗi dòng là một JSON object
+                        log_entry = json.loads(line)
+                        all_log_entries.append(log_entry)
+                    except json.JSONDecodeError:
+                        # Bỏ qua các dòng không phải JSON
+                        continue
+        except Exception as e:
+            print(f"Error reading log file {file_path}: {e}")
+
+    return all_log_entries
         
 import uvicorn
 if __name__ == "__main__":

@@ -24,4 +24,4 @@ EXPOSE 8001
 # Bước 7: Thiết lập lệnh mặc định để chạy ứng dụng khi container khởi động
 # Lệnh này tương tự như "Start Command" trên Render.
 # Uvicorn sẽ lắng nghe trên tất cả các địa chỉ IP bên trong container.
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8001"]
+CMD ["uvicorn", "app.test:app", "--host", "0.0.0.0", "--port", "8001"]

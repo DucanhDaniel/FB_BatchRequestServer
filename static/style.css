@@ -1,0 +1,79 @@
+
+body { font-family: sans-serif; background-color: #f4f7f6; color: #333; margin: 0; padding: 20px; }
+h1, h2, h3 { text-align: center; color: #2c3e50; margin-top: 0; }
+
+.summary-cards {
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+    margin-bottom: 30px;
+    flex-wrap: wrap;
+}
+.card {
+    background: white;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    text-align: center;
+    min-width: 200px;
+}
+.card-title {
+    font-size: 1em;
+    color: #7f8c8d;
+    margin-bottom: 10px;
+}
+.card-value {
+    font-size: 2em;
+    font-weight: bold;
+    color: #2c3e50;
+    margin: 0;
+}
+.card.success .card-value { color: #27ae60; }
+
+.container { display: flex; flex-direction: column; align-items: center; gap: 30px; }
+.chart-container { 
+    background: white; 
+    padding: 20px; 
+    border-radius: 8px; 
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1); 
+    width: 100%; 
+    max-width: 920px;
+    position: relative;
+    height: 600px;
+}
+.table-container { 
+    background: white; 
+    padding: 20px; 
+    border-radius: 8px; 
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1); 
+    width: 100%; 
+    max-width: 1200px; 
+    overflow-x: auto;
+
+    max-height: 500px; /* Giới hạn chiều cao tối đa là 500px */
+    overflow: auto;
+}
+table { width: 100%; border-collapse: collapse; }
+th, td { padding: 12px 15px; border: 1px solid #ddd; text-align: left; }
+th { background-color: #34495e; color: white; }
+tr:nth-child(even) { background-color: #f2f2f2; }
+td { font-size: 0.9em; word-break: break-all; }
+
+.charts-grid {
+    display: flex;
+    flex-direction: column;
+    align-items: center; /* Căn giữa các biểu đồ */
+    gap: 30px;
+    width: 100%;
+    margin-bottom: 30px;
+}
+
+/* static/style.css */
+
+.table-container-wrapper { 
+    display: flex; 
+    flex-direction: column; 
+    align-items: center; 
+    gap: 30px; 
+    width: 100%; /* [THÊM MỚI] Thêm dòng này để đảm bảo wrapper chiếm đủ chiều rộng */
+}
