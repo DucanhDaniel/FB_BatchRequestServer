@@ -229,7 +229,6 @@ def summarize_rate_limits(all_sub_request_headers: List[List[Dict[str, Any]]]) -
     })
     max_app_usage = 0.0
 
-    # --- PHẦN LOGIC PARSE HEADER GIỮ NGUYÊN NHƯ TRƯỚC ---
     for headers_list in all_sub_request_headers:
         if not headers_list:
             continue
@@ -260,8 +259,6 @@ def summarize_rate_limits(all_sub_request_headers: List[List[Dict[str, Any]]]) -
             if isinstance(acc_usage_pct, (int, float)):
                  account_details_dict[account_key]["insights_usage_pct"] = max(account_details_dict[account_key]["insights_usage_pct"], float(acc_usage_pct))
 
-    # --- THAY ĐỔI TỪ ĐÂY ---
-    # Chuyển đổi dictionary đã xử lý thành một list các dictionary
     summary_list = []
     for acc_id, details in account_details_dict.items():
         summary_list.append({

@@ -25,6 +25,4 @@ class BatchRequest(BaseModel):
     
 class RateLimitResponse(BaseModel):
     summary: Dict[str, Any] = Field(..., description="Dict chứa các thông số insight limit và BUC")
-    # app_id_util_pct: Optional[float] = Field(None, description="Phần trăm giới hạn Insights đã sử dụng của ứng dụng (lấy giá trị cao nhất).")
-    # acc_id_util_pct: Dict[str, float] = Field(..., description="Phần trăm giới hạn Insights đã sử dụng của từng tài khoản.")
     message: str = Field(..., description="Thông báo kết quả.")
