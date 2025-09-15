@@ -125,8 +125,8 @@ async def get_facebook_rate_limit(
             raise HTTPException(status_code=400, detail="Vui lòng cung cấp ít nhất một ID tài khoản quảng cáo.")
 
         # Tạo các request nhẹ để "khơi mào" API và lấy header
-        relative_urls = [f"{acc_id}/insights?fields=account_id&limit=1" for acc_id in ad_account_ids]
-
+        relative_urls = [f"{acc_id}/insights?fields=account_id&level=account&date_preset=yesterday&limit=1" for acc_id in ad_account_ids]
+        print(relative_urls)
         # Gọi hàm send_batch và nhận kết quả
         # Giả sử hàm trả về (results, summary, all_headers)
         _results, summary, all_headers = send_batch_to_facebook(
@@ -202,5 +202,26 @@ async def get_logs():
     return all_log_entries
         
 import uvicorn
+from pyngrok import ngrok
 if __name__ == "__main__":
-    uvicorn.run("test:app", host = "0.0.0.0", port = 8001)
+    # uvicorn.run("test:app", host = "0.0.0.0", port = 8001)
+    port = 8001
+    
+    try:
+        # Mở một tunnel HTTP tới cổng 8001
+
+        public_url = ngrok.connect(port, "http")
+        print("="*50)
+        print(f" * Ngrok tunnel đang chạy tại: {public_url}")
+        print(f" * Uvicorn đang chạy trên http://127.0.0.1:{port}")
+        print("="*50)
+        
+        # Chạy uvicorn. Lưu ý: truyền đối tượng 'app' trực tiếp
+        uvicorn.run(app, host="0.0.0.0", port=port)
+        
+    except Exception as e:
+        print(f"Lỗi: {e}")
+    finally:
+        # Ngắt kết nối ngrok khi ứng dụng dừng
+        ngrok.disconnect(public_url.public_url)
+        print("Đã đóng kết nối ngrok.")

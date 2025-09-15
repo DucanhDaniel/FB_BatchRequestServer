@@ -14,7 +14,7 @@ COPY ./requirements.txt /code/requirements.txt
 RUN pip install --no-cache-dir --upgrade -r /code/requirements.txt
 
 # Bước 5: Sao chép toàn bộ mã nguồn ứng dụng vào container
-COPY ./ /code/app
+COPY ./ /code/
 
 # Bước 6: Mở (expose) cổng mà Uvicorn sẽ chạy
 # Lệnh này không thực sự publish cổng, nó hoạt động như một tài liệu
@@ -24,4 +24,4 @@ EXPOSE 8001
 # Bước 7: Thiết lập lệnh mặc định để chạy ứng dụng khi container khởi động
 # Lệnh này tương tự như "Start Command" trên Render.
 # Uvicorn sẽ lắng nghe trên tất cả các địa chỉ IP bên trong container.
-CMD ["uvicorn", "app.test:app", "--host", "0.0.0.0", "--port", "8001"]
+CMD ["uvicorn", "test:app", "--host", "0.0.0.0", "--port", "8001"]

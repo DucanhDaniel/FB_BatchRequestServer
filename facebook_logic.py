@@ -10,6 +10,30 @@ API_VERSION = "v23.0"
 setup_logging()
 logger = logging.getLogger("FacebookBatchApp") # Lấy logger instance
 
+
+def _send_single_request(
+    relative_url: str,
+    access_token: str,
+    api_version: str = API_VERSION,
+    timeout_sec: int = 60
+) -> Dict[str, Any]:
+    """Gửi một yêu cầu GET duy nhất và trả về kết quả đã được chuẩn hóa."""
+    # ... (Hàm này giữ nguyên như phiên bản trước)
+    api_url = f"https://graph.facebook.com/{api_version}/{relative_url}"
+    params = {"access_token": access_token}
+    try:
+        resp = requests.get(api_url, params=params, timeout=timeout_sec)
+        status_code = resp.status_code
+        data = resp.json()
+        if status_code == 200:
+            return {"status_code": 200, "data": data, "error": None}
+        else:
+            return {"status_code": status_code, "data": None, "error": data.get("error", data)}
+    except requests.exceptions.RequestException as e:
+        return {"status_code": 599, "data": None, "error": {"message": str(e), "type": "ClientRequestError"}}
+    except json.JSONDecodeError:
+        return {"status_code": 599, "data": None, "error": {"message": "Failed to decode JSON from retry", "type": "ClientJSONError"}}
+
 def send_batch_to_facebook(
     relative_urls: List[str],
     access_token: str,
@@ -45,11 +69,15 @@ def send_batch_to_facebook(
         "batch": json.dumps(batch_payload, ensure_ascii=False),
         "include_headers": "true"  # thêm để debug giới hạn/rate nếu cần
     }
+    
+    print("Payload: \n", payload)
 
     try:
         resp = requests.post(api_url, data=payload, timeout=timeout_sec)
+        print(resp)
         
         resp.raise_for_status()
+        
     except requests.exceptions.RequestException as e:
         raise RuntimeError(f"Lỗi khi gọi đến Facebook API: {e}") from e
 
@@ -121,10 +149,34 @@ def send_batch_to_facebook(
         processed_results.append(result_item)
         
         log_sub_request(request_id, i, item, result_item)
+        
+    print("processed_results: \n", processed_results)
+    
+    print()
+    
+    print("access_token: \n", access_token)
+    
+    print() 
+    
+    print("api_version: \n", api_version)
+    
+    print()
+    
+    print("request_id: \n", request_id)
+    successful_retries, _ = _retry_failed_requests(
+            processed_results=processed_results,
+            access_token=access_token,
+            api_version=api_version,
+            request_id=request_id
+        )
+    # Cập nhật lại bộ đếm
+    success_count += successful_retries
+    error_count -= successful_retries
 
     summary = {"success_count": success_count, "error_count": error_count}
 
     if get_header:
+        print(all_headers)
         return processed_results, summary, all_headers 
 
     return processed_results, summary
@@ -184,4 +236,58 @@ def summarize_rate_limits(all_sub_request_headers: List[List[Dict[str, Any]]]) -
         "app_usage_pct": max_app_usage,
         "account_details": summary_list # Trả về một list thay vì dict
     }
- 
+
+import time
+def _retry_failed_requests(
+    processed_results: List[Dict[str, Any]],
+    access_token: str,
+    api_version: str,
+    request_id: str
+) -> tuple[int, int]:
+    """
+    [HÀM MỚI] Tìm và gửi lại các sub-request thất bại (lỗi 500).
+    Cập nhật trực tiếp vào list processed_results.
+    Trả về số lượng retry thành công và thất bại.
+    """
+    requests_to_retry = [item for item in processed_results if item["status_code"] == 500]
+    
+    if not requests_to_retry:
+        return 0, 0 # Không có gì để retry
+
+    logger.info(f"Detected {len(requests_to_retry)} sub-requests with 500 error. Retrying...", extra={"request_id": request_id})
+    successful_retries = 0
+
+    for failed_item in requests_to_retry:
+        original_index = failed_item["request_index"]
+        url_to_retry = failed_item["requested_url"]
+        
+        logger.info(f"Retrying sub-request #{original_index}: {url_to_retry}", extra={"request_id": request_id, "request_index": original_index})
+        time.sleep(0.5) # Thêm delay nhỏ để tránh dồn dập server
+        
+        retry_result = _send_single_request(
+            relative_url=url_to_retry,
+            access_token=access_token,
+            api_version=api_version
+        )
+        
+        if retry_result["status_code"] == 200:
+            logger.info(f"Retry for sub-request #{original_index} SUCCEEDED.", extra={"request_id": request_id, "request_index": original_index})
+            
+            # Cập nhật lại item gốc trong danh sách
+            processed_results[original_index]["status_code"] = 200
+            processed_results[original_index]["data"] = retry_result["data"]
+            processed_results[original_index]["error"] = None
+            successful_retries += 1
+        else:
+            logger.warning(
+                f"Retry for sub-request #{original_index} FAILED with new status code: {retry_result['status_code']}.",
+                extra={
+                    "request_id": request_id,
+                    "request_index": original_index,
+                    "new_status_code": retry_result['status_code'],
+                    "new_error": retry_result['error']
+                }
+            )
+            
+    return successful_retries, len(requests_to_retry) - successful_retries
+
