@@ -45,6 +45,43 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     // === Helper Functions ===
+    function formatTimestamp(dateObj) {
+        if (!dateObj || isNaN(dateObj)) {
+            return 'N/A';
+        }
+
+        const year = dateObj.getFullYear();
+        // getMonth() trả về từ 0-11, nên cần +1.
+        // padStart(2, '0') để đảm bảo luôn có 2 chữ số (VD: 9 -> "09").
+        const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+        const day = String(dateObj.getDate()).padStart(2, '0');
+        
+        const hours = String(dateObj.getHours()).padStart(2, '0');
+        const minutes = String(dateObj.getMinutes()).padStart(2, '0');
+        const seconds = String(dateObj.getSeconds()).padStart(2, '0');
+
+        // Lưu ý: Dùng dấu ':' theo yêu cầu của bạn
+        return `${year}:${month}:${day}<br>${hours}:${minutes}:${seconds}`;
+    }
+
+    function parseLogTimestamp(asctime) {
+        if (!asctime) return null;
+
+        // Bước 1: Thay thế dấu phẩy bằng dấu chấm.
+        // "2025-09-15 14:37:39,384" -> "2025-09-15 14:37:39.384"
+        let parsableString = asctime.replace(',', '.');
+
+        // Bước 2: Thay thế khoảng trắng đầu tiên (giữa ngày và giờ) bằng chữ 'T'.
+        // "2025-09-15 14:37:39.384" -> "2025-09-15T14:37:39.384"
+        parsableString = parsableString.replace(' ', 'T');
+
+        // Bây giờ chuỗi đã ở định dạng được hỗ trợ toàn cầu.
+        const dateObj = new Date(parsableString);
+
+        // Kiểm tra lại lần cuối xem parse có thành công không.
+        return isNaN(dateObj) ? null : dateObj;
+    }
+
     function categorizeUrl(url) {
         if (!url) return 'Unknown';
         if (url.includes('/insights')) {
@@ -127,13 +164,24 @@ document.addEventListener('DOMContentLoaded', function () {
         pieChart.data.datasets[0].data = [successCount, allSubRequests.length - successCount];
         pieChart.update();
 
-        const oneHourAgo = new Date(new Date().getTime() - 60 * 60 * 1000);
-        // QUAY VỀ LOGIC BAN ĐẦU: Dùng asctime trực tiếp, không qua hàm parse nữa
-        const recentLogs = allSubRequests.filter(log => new Date(log.asctime) >= oneHourAgo);
+        const oneHourAgo = new Date(new Date().getTime() - 60 * 60 * 10000);
+        // const recentLogs = allSubRequests.filter(log => new Date(log.asctime) >= oneHourAgo);
+        const recentLogs = allSubRequests.filter(log => {
+            const logTime = parseLogTimestamp(log.asctime);
+            return logTime && logTime >= oneHourAgo;
+        });
         
-        timeSeriesChart.data.labels = recentLogs.map(log => new Date(log.asctime));
-        timeSeriesChart.data.datasets[0].data = recentLogs.map(log => log.duration_ms);
-        timeSeriesChart.data.datasets[1].data = recentLogs.map(log => (log.rate_limit?.app_id_util_pct ?? 0) * 100);
+        timeSeriesChart.data.labels = timeSeriesChart.data.labels = []; 
+        timeSeriesChart.data.datasets[0].data = recentLogs.map(log => ({
+            x: parseLogTimestamp(log.asctime),
+            y: log.duration_ms
+        }));
+
+        timeSeriesChart.data.datasets[1].data = recentLogs.map(log => ({
+            x: parseLogTimestamp(log.asctime),
+            y: (log.rate_limit?.app_id_util_pct ?? 0) * 100
+        }));
+
         timeSeriesChart.update();
         
         const costLabels = Object.keys(costByEndpoint);
@@ -166,9 +214,12 @@ document.addEventListener('DOMContentLoaded', function () {
 
         failedRequestsTbody.innerHTML = recentTableLogs.filter(log => log.status_code !== 200).map(log => {
             const errorMessage = log.error?.message || JSON.stringify(log.error) || 'Unknown error';
-            // QUAY VỀ LOGIC BAN ĐẦU: Dùng asctime trực tiếp, không qua hàm parse
-            const formattedTime = new Date(log.asctime).toLocaleString('vi-VN');
+            // 1. Parse timestamp bằng hàm helper như cũ
+            const logTime = parseLogTimestamp(log.asctime);
             
+            // 2. SỬ DỤNG HÀM MỚI để định dạng đối tượng Date 'logTime'
+            const formattedTime = formatTimestamp(logTime);
+
             return `<tr>
                 <td>${formattedTime}</td>
                 <td>${log.requested_url || 'N/A'}</td>
