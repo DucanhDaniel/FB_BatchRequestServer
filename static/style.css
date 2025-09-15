@@ -37,7 +37,7 @@ h1, h2, h3 { text-align: center; color: #2c3e50; margin-top: 0; }
     border-radius: 8px; 
     box-shadow: 0 2px 4px rgba(0,0,0,0.1); 
     width: 100%; 
-    max-width: 920px;
+    max-width: 887px;
     position: relative;
     height: 600px;
 }
@@ -59,14 +59,44 @@ th { background-color: #34495e; color: white; }
 tr:nth-child(even) { background-color: #f2f2f2; }
 td { font-size: 0.9em; word-break: break-all; }
 
+
+/* Container chính sử dụng CSS Grid */
 .charts-grid {
-    display: flex;
-    flex-direction: column;
-    align-items: center; /* Căn giữa các biểu đồ */
-    gap: 30px;
-    width: 100%;
+    display: grid;
+    /* Tạo 2 cột: Cột đầu tiên rộng 1 phần, cột thứ hai rộng 2 phần.
+      Bạn có thể thay đổi tỉ lệ này, ví dụ: '1fr 1fr' để chia đều.
+    */
+    grid-template-columns: 1fr 2fr;
+    
+    /* Tạo 2 dòng với chiều cao tự động.
+    */
+    grid-template-rows: auto auto;
+
+    /* Khoảng cách giữa các ô trong grid */
+    gap: 24px;
+    margin-top: 24px;
     margin-bottom: 30px;
 }
+
+/* Biểu đồ đầu tiên (Tròn): Nằm ở cột 1, và kéo dài (span) hết 2 dòng */
+.charts-grid .chart-container:nth-child(1) {
+    grid-column: 1;
+    grid-row: 1 / span 2; /* Bắt đầu từ dòng 1, kéo dài 2 dòng */
+}
+
+/* Biểu đồ thứ hai (Line): Nằm ở cột 2, dòng 1 */
+.charts-grid .chart-container:nth-child(2) {
+    grid-column: 2;
+    grid-row: 1;
+}
+
+/* Biểu đồ thứ ba (Bar): Nằm ở cột 2, dòng 2 */
+.charts-grid .chart-container:nth-child(3) {
+    grid-column: 2;
+    grid-row: 2;
+}
+
+
 
 /* static/style.css */
 
@@ -76,4 +106,47 @@ td { font-size: 0.9em; word-break: break-all; }
     align-items: center; 
     gap: 30px; 
     width: 100%; /* [THÊM MỚI] Thêm dòng này để đảm bảo wrapper chiếm đủ chiều rộng */
+}
+
+/* ================================================= */
+/* CSS FOR RESPONSIVE LAYOUT             */
+/* ================================================= */
+
+/* --- 1. Xử lý cho các bảng (Tables) --- */
+/* Rất quan trọng: Bảng là nguyên nhân phổ biến gây tràn trang */
+.table-container {
+    overflow-x: auto; /* Thêm thanh cuộn ngang cho BẢNG nếu nó quá rộng */
+}
+
+/* Cho phép các chuỗi URL dài trong bảng có thể xuống dòng */
+td {
+    word-break: break-all;
+}
+
+
+/* --- 2. Xử lý cho các biểu đồ (Charts Grid) --- */
+
+/* Áp dụng cho màn hình có chiều rộng từ 1024px trở xuống (máy tính bảng, điện thoại) */
+@media (max-width: 1024px) {
+    
+    /* Chuyển grid layout thành 1 cột duy nhất */
+    .charts-grid {
+        grid-template-columns: 1fr; /* Chỉ còn 1 cột */
+    }
+
+    /* Reset lại vị trí của từng biểu đồ để chúng tự xếp chồng lên nhau */
+    .charts-grid .chart-container:nth-child(1),
+    .charts-grid .chart-container:nth-child(2),
+    .charts-grid .chart-container:nth-child(3) {
+        grid-column: auto;
+        grid-row: auto;
+    }
+}
+
+/* --- 3. (Tùy chọn) Xử lý cho các thẻ tóm tắt ở trên cùng --- */
+/* Giả sử bạn có một container cho các thẻ này, ví dụ class="summary-container" */
+.summary-container {
+    display: flex;
+    flex-wrap: wrap; /* Cho phép các thẻ tự động xuống dòng khi không đủ chỗ */
+    gap: 16px;
 }
