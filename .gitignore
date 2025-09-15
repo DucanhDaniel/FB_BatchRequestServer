@@ -10,3 +10,7 @@ wheels/
 .venv
 
 .vscode
+
+logs/
+
+nginx/
