@@ -153,7 +153,8 @@ def send_batch_to_facebook(
     access_token: str,
     request_id: str,
     api_version: str = API_VERSION,
-    timeout_sec: int = 120
+    timeout_sec: int = 120,
+    get_header = False
 ) -> List[Dict[str, Any]]:
     """
     [PHIÊN BẢN CUỐI CÙNG]
@@ -187,6 +188,7 @@ def send_batch_to_facebook(
     # --- 1. XỬ LÝ KẾT QUẢ BAN ĐẦU ---
     # Tạo ra một danh sách các item đã được xử lý sơ bộ.
     processed_results: List[Dict[str, Any]] = []
+    all_header = []
     for i, item in enumerate(data):
         result_item = {
             "request_index": i,
@@ -199,6 +201,9 @@ def send_batch_to_facebook(
         if item:
             try:
                 body_json = json.loads(item.get("body", "{}"))
+                
+                all_header.append(item.get('headers', []))
+                
                 if result_item["status_code"] == 200:
                     result_item["data"] = body_json
                 else:
@@ -207,6 +212,8 @@ def send_batch_to_facebook(
                 result_item["error"] = {"message": "Body không phải JSON."}
         
         processed_results.append(result_item)
+        
+        
 
     # --- 2. THỰC HIỆN RETRY ---
     # Hàm này sẽ tìm các item có lỗi 5xx trong `processed_results`,
@@ -240,5 +247,8 @@ def send_batch_to_facebook(
     error_count = len(processed_results) - success_count
     summary = {"success_count": success_count, "error_count": error_count}
 
+    if get_header:
+        return processed_results, summary, all_header
+    
     return processed_results, summary
 
