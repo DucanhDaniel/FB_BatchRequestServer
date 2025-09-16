@@ -1,5 +1,6 @@
 document.addEventListener('DOMContentLoaded', function () {
     // === DOM Elements ===
+    const retryAttemptsTbody = document.querySelector('#retryAttemptsTable tbody');
     const totalRequestsEl = document.getElementById('totalRequests');
     const successRateEl = document.getElementById('successRate');
     const avgDurationEl = document.getElementById('avgDuration');
@@ -225,6 +226,36 @@ document.addEventListener('DOMContentLoaded', function () {
                 <td>${log.requested_url || 'N/A'}</td>
                 <td style="text-align: center; color: #e74c3c; font-weight: bold;">${log.status_code || 'N/A'}</td>
                 <td>${errorMessage}</td>
+            </tr>`;
+        }).join('');
+
+        const retryLogs = allSubRequests
+            .filter(log => log.message && log.message.includes('RETRY'))
+            .slice(-100)
+            .reverse();
+
+        // cập nhật bảng recent tried 
+        retryAttemptsTbody.innerHTML = retryLogs.map(log => {
+            const logTime = parseLogTimestamp(log.asctime);
+            const formattedTime = formatTimestamp(logTime);
+            const finalStatus = log.status_code;
+            
+            let outcome = 'Unknown';
+            let outcomeClass = '';
+
+            if (log.message.includes('RETRY SUCCESS')) {
+                outcome = 'Success';
+                outcomeClass = 'status-success';
+            } else if (log.message.includes('RETRY FAILED')) {
+                outcome = 'Failed';
+                outcomeClass = 'status-failed';
+            }
+
+            return `<tr>
+                <td>${formattedTime}</td>
+                <td>${log.requested_url || 'N/A'}</td>
+                <td style="text-align: center;">${finalStatus}</td>
+                <td class="${outcomeClass}" style="text-align: center;">${outcome}</td>
             </tr>`;
         }).join('');
     }

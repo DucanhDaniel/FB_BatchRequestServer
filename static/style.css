@@ -150,3 +150,12 @@ td {
     flex-wrap: wrap; /* Cho phép các thẻ tự động xuống dòng khi không đủ chỗ */
     gap: 16px;
 }
+
+.status-success {
+    color: #27ae60; /* Màu xanh lá */
+    font-weight: bold;
+}
+.status-failed {
+    color: #e74c3c; /* Màu đỏ */
+    font-weight: bold;
+}

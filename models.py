@@ -26,3 +26,6 @@ class BatchRequest(BaseModel):
 class RateLimitResponse(BaseModel):
     summary: Dict[str, Any] = Field(..., description="Dict chứa các thông số insight limit và BUC")
     message: str = Field(..., description="Thông báo kết quả.")
+
+class CleanupPayload(BaseModel):
+    days_to_keep: int = Field(7, ge=0, description="Số ngày log muốn giữ lại. Các file cũ hơn sẽ bị xóa.")

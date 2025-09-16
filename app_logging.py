@@ -13,100 +13,6 @@ USAGE_HEADERS_TO_LOG = {
     "x-app-usage"
 }
 
-# --- Thêm hàm này vào gần các Helper Functions khác ---
-def _log_sub_request_headers(
-    request_index: int, 
-    requested_url: str, 
-    headers_list: List[Dict[str, str]]
-):
-    """
-    [PHIÊN BẢN BẢNG]
-    Lọc và in các header usage quan trọng của một sub-request ra console
-    dưới dạng một bảng tóm tắt rõ ràng.
-    """
-    INTERESTING_HEADERS = {
-        "x-business-use-case-usage",
-        "x-fb-ads-insights-throttle",
-    }
-
-    # --- Bước 1: Trích xuất và parse dữ liệu header ---
-    throttle_info = {}
-    buc_info = {}
-    for h in headers_list:
-        name = h.get("name", "").lower()
-        if name in INTERESTING_HEADERS:
-            try:
-                if name == "x-fb-ads-insights-throttle":
-                    throttle_info = json.loads(h.get("value", "{}"))
-                elif name == "x-business-use-case-usage":
-                    buc_info = json.loads(h.get("value", "{}"))
-            except (json.JSONDecodeError, TypeError):
-                continue
-
-    if not throttle_info and not buc_info:
-        return # Không có thông tin gì để in
-
-    # --- Bước 2: In tiêu đề và thông tin throttle tóm tắt ---
-    print("\n" + "="*80)
-    print(f"📊 [RATE LIMIT USAGE] Sub-Request #{request_index}: {requested_url[:80]}...")
-    print("-" * 80)
-    
-    app_usage = throttle_info.get("app_id_util_pct", "N/A")
-    acc_usage = throttle_info.get("acc_id_util_pct", "N/A")
-    print(f"- Insights App Usage (%): {app_usage} | Insights Account Usage (%): {acc_usage}")
-    
-    if not buc_info:
-        print("="*80 + "\n")
-        return # Nếu không có BUC thì dừng ở đây
-
-    # --- Bước 3: Chuẩn bị và in bảng cho Business Use Case ---
-    for acc_id, entries in buc_info.items():
-        if not isinstance(entries, list): continue
-
-        print("-" * 80)
-        print(f"[Business Use Case Usage for Account: {acc_id}]")
-
-        # Chuẩn bị dữ liệu và tính độ rộng cột
-        header = ["Type", "Calls", "CPU Time", "Total Time", "ETA (s)", "Tier"]
-        col_widths = {h: len(h) for h in header}
-        
-        table_data = []
-        for entry in entries:
-            row = {
-                "Type": str(entry.get("type", "")),
-                "Calls": str(entry.get("call_count", "")),
-                "CPU Time": str(entry.get("total_cputime", "")),
-                "Total Time": str(entry.get("total_time", "")),
-                "ETA (s)": str(entry.get("estimated_time_to_regain_access", "")),
-                "Tier": str(entry.get("ads_api_access_tier", ""))
-            }
-            table_data.append(row)
-            for h in header:
-                col_widths[h] = max(col_widths[h], len(row[h]))
-
-        # In header của bảng
-        header_line = " | ".join([h.ljust(col_widths[h]) for h in header])
-        print(f"| {header_line} |")
-
-        # In dòng phân cách
-        separator_line = "-|-".join(["-" * col_widths[h] for h in header])
-        print(f"|{separator_line}|")
-
-        # In các dòng dữ liệu
-        for row in table_data:
-            data_line = " | ".join([
-                row["Type"].ljust(col_widths["Type"]),
-                row["Calls"].rjust(col_widths["Calls"]),
-                row["CPU Time"].rjust(col_widths["CPU Time"]),
-                row["Total Time"].rjust(col_widths["Total Time"]),
-                row["ETA (s)"].rjust(col_widths["ETA (s)"]),
-                row["Tier"].ljust(col_widths["Tier"])
-            ])
-            print(f"| {data_line} |")
-
-    print("="*80 + "\n")    
-
-# app_logging.py
 import logging
 import logging.config
 import os
@@ -252,4 +158,14 @@ def log_sub_request(
         else:
             log_payload["error"] = {"message": "Unknown error structure."}
 
-    logger.info(f"Processed sub-request #{request_index}", extra=log_payload)
+    message = f"Processed sub-request #{request_index}"
+    # [THÊM MỚI] Kiểm tra cờ 'was_retried'
+    if processed_item.get("was_retried"):
+        if processed_item.get("status_code") == 200:
+            message += " - RETRY SUCCESS"
+        else:
+            message += f" - RETRY FAILED with code {processed_item.get('status_code')}"
+
+    # Thay thế logger.info cũ bằng message mới này
+    logger.info(message, extra=log_payload)
+    

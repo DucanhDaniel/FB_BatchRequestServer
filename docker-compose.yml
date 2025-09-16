@@ -2,77 +2,41 @@ version: '3.8'
 
 services:
   fastapi_server:
-    # build: . có nghĩa là "build một image từ Dockerfile trong thư mục này"
-    build: .
+    image: phamducanh2k5/fb_batch_request_server:latest
     container_name: fastapi_server
-    # Chúng ta không cần 'ports' ở đây vì Nginx sẽ xử lý việc public ra ngoài
+    environment:
+      - LOG_DIR=/code/app/logs
     volumes:
-      # Mount thư mục logs ra ngoài host để Filebeat có thể đọc
+      # Mount thư mục logs để app có thể ghi log
       - ./logs:/code/app/logs
+      # Mount thư mục static để app phục vụ dashboard
+      - ./static:/code/static
     networks:
-      - elastic-net
-
-  # 1. DỊCH VỤ ELASTICSEARCH: "CƠ SỞ DỮ LIỆU" ĐỂ LƯU LOG
-  elasticsearch:
-    image: docker.elastic.co/elasticsearch/elasticsearch:8.10.2
-    container_name: elasticsearch
-    environment:
-      - discovery.type=single-node
-      - xpack.security.enabled=false
-    ports:
-      - "9200:9200"
-    volumes:
-      - elasticsearch-data:/usr/share/elasticsearch/data
-    networks:
-      - elastic-net
-
-  # 2. DỊCH VỤ KIBANA: "GIAO DIỆN WEB" ĐỂ XEM LOG
-  kibana:
-    image: docker.elastic.co/kibana/kibana:8.10.2
-    container_name: kibana
-    # ports:
-    #   - "5601:5601"
-    environment:
-      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
-    depends_on:
-      - elasticsearch
-    networks:
-      - elastic-net
+      - app-net
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8001/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
 
   nginx:
     image: nginx:alpine
     container_name: nginx
     ports:
-      # Public cổng 5601 của MÁY BẠN tới cổng 5601 của NGINX (cho Kibana)
-      - "5601:5601"
-      # [SỬA ĐỔI] Public cổng 8001 của MÁY BẠN tới cổng 8000 của NGINX (cho FastAPI)
+      # Chỉ cần public một cổng duy nhất cho toàn bộ ứng dụng
       - "8001:8000"
     volumes:
       - ./nginx:/etc/nginx/conf.d
     networks:
-      - elastic-net
+      - app-net
     depends_on:
-      - kibana
-      - fastapi_server
-
-  # 3. DỊCH VỤ FILEBEAT: "NGƯỜI VẬN CHUYỂN" LOG
-  filebeat:
-    image: docker.elastic.co/beats/filebeat:8.10.2
-    container_name: filebeat
-    user: root
-    volumes:
-      - ./filebeat.yml:/usr/share/filebeat/filebeat.yml
-      - ./logs:/var/log/fastapi:ro
-    command: sh -c "chmod go-w /usr/share/filebeat/filebeat.yml && /usr/local/bin/docker-entrypoint -e"
-    depends_on:
-      - elasticsearch
-    networks:
-      - elastic-net
+      fastapi_server:
+        condition: service_healthy # Chờ FastAPI khỏe mạnh mới khởi động
 
 networks:
-  elastic-net:
+  app-net:
     driver: bridge
 
-volumes:
-  elasticsearch-data:
-    driver: local
+# Không còn volume của elasticsearch nữa
+volumes: {}
