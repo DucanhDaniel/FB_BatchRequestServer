@@ -22,7 +22,7 @@ from typing import Dict, Any, List
 
 # --- CẤU HÌNH LOGGER ---
 
-LOGS_DIR = "logs"
+LOGS_DIR = os.getenv("LOG_DIR", "logs")
 if not os.path.exists(LOGS_DIR):
     os.makedirs(LOGS_DIR)
 
