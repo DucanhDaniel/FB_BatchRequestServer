@@ -1,11 +1,3 @@
-import json
-import requests
-from typing import List, Dict, Any
-
-from fastapi import FastAPI, Query, HTTPException, Body
-from pydantic import BaseModel, Field, field_validator
-from models import BatchRequest
-
 USAGE_HEADERS_TO_LOG = {
     "x-business-use-case-usage",
     "x-fb-ads-insights-throttle",
@@ -18,7 +10,7 @@ import logging.config
 import os
 import json
 import time
-from typing import Dict, Any, List
+from typing import Dict, Any
 
 # --- CẤU HÌNH LOGGER ---
 
