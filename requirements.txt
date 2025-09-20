@@ -2,3 +2,5 @@ fastapi
 uvicorn[standard]
 requests
 python-json-logger
+gunicorn
+dotenv
