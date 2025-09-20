@@ -23,7 +23,6 @@ HEADERS = {
     "Content-Type": "application/json",
 }
 
-
 def chunk_list(data, size):
     """Chia một danh sách thành các danh sách con có kích thước `size`."""
     for i in range(0, len(data), size):
@@ -120,7 +119,7 @@ def fetch_data_for_batch(campaign_batch, campaign_name_map, start_date, end_date
         "start_date": start_date, "end_date": end_date,
         "dimensions": json.dumps(["campaign_id", "item_group_id", "stat_time_day"]),
         "metrics": json.dumps(["orders", "gross_revenue", "cost", "cost_per_order", "roi"]),
-        "filtering": json.dumps({"campaign_ids": batch_ids}), # CẬP NHẬT: Dùng list ID
+        "filtering": json.dumps({"campaign_ids": batch_ids}), 
         "page_size": 1000,
     }
 
