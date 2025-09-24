@@ -3,7 +3,7 @@ version: '3.8'
 services:
   fastapi_server:
     image: phamducanh2k5/fb_batch_request_server:latest
-    container_name: fastapi_server
+    container_name: fastapi_server_8004
     environment:
       - LOG_DIR=/code/app/logs
     volumes:
@@ -14,7 +14,7 @@ services:
     networks:
       - app-net
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8001/health || exit 1"]
+      test: ["CMD-SHELL", "curl -f http://localhost:8004/health || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -22,10 +22,10 @@ services:
 
   nginx:
     image: nginx:alpine
-    container_name: nginx
+    container_name: nginx_8004
     ports:
       # Chỉ cần public một cổng duy nhất cho toàn bộ ứng dụng
-      - "8001:8000"
+      - "8004:8000"
     volumes:
       - ./nginx:/etc/nginx/conf.d
     networks:

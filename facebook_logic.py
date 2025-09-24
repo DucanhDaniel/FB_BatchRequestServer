@@ -148,21 +148,125 @@ def _retry_failed_requests(
 
 # main.py
 
-def send_batch_to_facebook(
+# def send_batch_to_facebook(
+#     relative_urls: List[str],
+#     access_token: str,
+#     request_id: str,
+#     api_version: str = API_VERSION,
+#     timeout_sec: int = 120,
+#     get_header = False
+# ):
+#     """
+#     [PHIÊN BẢN CUỐI CÙNG]
+#     Gửi batch, thực hiện retry cho các lỗi tạm thời, và GHI LOG KẾT QUẢ CUỐI CÙNG.
+#     """
+#     if not access_token: raise ValueError("Access token không hợp lệ.")
+#     if not 1 <= len(relative_urls) <= 50: raise ValueError("Số lượng URL phải từ 1 đến 50.")
+    
+#     normalized_urls = [url.lstrip("/") for url in relative_urls]
+#     api_url = f"https://graph.facebook.com/{api_version}"
+#     batch_payload = [{"method": "GET", "relative_url": u} for u in normalized_urls]
+#     payload = {
+#         "access_token": access_token,
+#         "batch": json.dumps(batch_payload),
+#         "include_headers": "true"
+#     }
+
+#     try:
+#         resp = requests.post(api_url, data=payload, timeout=timeout_sec)
+#         resp.raise_for_status()
+#         # data là danh sách các response thô từ Facebook
+#         data = resp.json()
+#     except requests.exceptions.RequestException as e:
+#         raise RuntimeError(f"Lỗi khi gọi đến Facebook API: {e}")
+#     except json.JSONDecodeError:
+#         raise RuntimeError(f"Không thể parse JSON từ Facebook: {resp.text[:1000]}")
+
+#     if not isinstance(data, list):
+#         raise RuntimeError(f"Phản hồi không phải list như kỳ vọng.")
+
+#     # --- 1. XỬ LÝ KẾT QUẢ BAN ĐẦU ---
+#     # Tạo ra một danh sách các item đã được xử lý sơ bộ.
+#     processed_results: List[Dict[str, Any]] = []
+#     all_header = []
+#     for i, item in enumerate(data):
+#         result_item = {
+#             "request_index": i,
+#             "requested_url": normalized_urls[i],
+#             "status_code": item.get("code") if item else 500,
+#             "data": None,
+#             "error": {"message": "Kết quả NULL từ Facebook"} if not item else None,
+#             "was_retried": False # Cờ để theo dõi
+#         }
+#         if item:
+#             try:
+#                 body_json = json.loads(item.get("body", "{}"))
+                
+#                 all_header.append(item.get('headers', []))
+                
+#                 if result_item["status_code"] == 200:
+#                     result_item["data"] = body_json
+#                 else:
+#                     result_item["error"] = body_json.get("error", body_json)
+#             except json.JSONDecodeError:
+#                 result_item["error"] = {"message": "Body không phải JSON."}
+        
+#         processed_results.append(result_item)
+        
+        
+
+#     # --- 2. THỰC HIỆN RETRY ---
+#     # Hàm này sẽ tìm các item có lỗi 5xx trong `processed_results`,
+#     # gửi lại request, và cập nhật trực tiếp các item đó với kết quả mới.
+#     successful_retries, failed_retries = _retry_failed_requests(
+#         processed_results=processed_results,
+#         access_token=access_token,
+#         api_version=api_version,
+#         request_id=request_id
+#     )
+
+#     # --- 3. GHI LOG KẾT QUẢ CUỐI CÙNG (SAU KHI ĐÃ RETRY) ---
+#     logger.info(
+#         f"Logging final status for {len(processed_results)} sub-requests.", 
+#         extra={"request_id": request_id, "log.type": "final_logging"}
+#     )
+#     for result in processed_results:
+#         # Lấy lại response thô ban đầu từ Facebook để truyền vào hàm log
+#         original_fb_item = data[result.get("request_index")]
+        
+#         # Gọi hàm log gốc của bạn với dữ liệu cuối cùng
+#         log_sub_request(
+#             request_id=request_id,
+#             request_index=result.get("request_index"),
+#             fb_response_item=original_fb_item,
+#             processed_item=result 
+#         )
+
+#     # Cập nhật lại bộ đếm để trả về
+#     success_count = len([r for r in processed_results if r["status_code"] == 200])
+#     error_count = len(processed_results) - success_count
+#     summary = {"success_count": success_count, "error_count": error_count}
+
+#     if get_header:
+#         return processed_results, summary, all_header
+    
+#     return processed_results, summary
+
+def _send_single_batch_to_facebook(
     relative_urls: List[str],
     access_token: str,
     request_id: str,
-    api_version: str = API_VERSION,
-    timeout_sec: int = 120,
-    get_header = False
-) -> List[Dict[str, Any]]:
+    api_version: str,
+    timeout_sec: int,
+):
     """
-    [PHIÊN BẢN CUỐI CÙNG]
-    Gửi batch, thực hiện retry cho các lỗi tạm thời, và GHI LOG KẾT QUẢ CUỐI CÙNG.
+    [HÀM HELPER] Gửi một batch duy nhất (<= 50 requests).
+    Hàm này là logic cốt lõi từ phiên bản gốc của bạn.
     """
+    # Validation đã có ở hàm cha, nhưng giữ lại để an toàn
     if not access_token: raise ValueError("Access token không hợp lệ.")
-    if not 1 <= len(relative_urls) <= 50: raise ValueError("Số lượng URL phải từ 1 đến 50.")
-    
+    if not 1 <= len(relative_urls) <= 50: raise ValueError(f"Số lượng URL cho một batch phải từ 1 đến 50, nhận được: {len(relative_urls)}")
+
     normalized_urls = [url.lstrip("/") for url in relative_urls]
     api_url = f"https://graph.facebook.com/{api_version}"
     batch_payload = [{"method": "GET", "relative_url": u} for u in normalized_urls]
@@ -175,7 +279,6 @@ def send_batch_to_facebook(
     try:
         resp = requests.post(api_url, data=payload, timeout=timeout_sec)
         resp.raise_for_status()
-        # data là danh sách các response thô từ Facebook
         data = resp.json()
     except requests.exceptions.RequestException as e:
         raise RuntimeError(f"Lỗi khi gọi đến Facebook API: {e}")
@@ -186,9 +289,8 @@ def send_batch_to_facebook(
         raise RuntimeError(f"Phản hồi không phải list như kỳ vọng.")
 
     # --- 1. XỬ LÝ KẾT QUẢ BAN ĐẦU ---
-    # Tạo ra một danh sách các item đã được xử lý sơ bộ.
     processed_results: List[Dict[str, Any]] = []
-    all_header = []
+    all_headers = []
     for i, item in enumerate(data):
         result_item = {
             "request_index": i,
@@ -196,59 +298,125 @@ def send_batch_to_facebook(
             "status_code": item.get("code") if item else 500,
             "data": None,
             "error": {"message": "Kết quả NULL từ Facebook"} if not item else None,
-            "was_retried": False # Cờ để theo dõi
+            "was_retried": False
         }
         if item:
             try:
                 body_json = json.loads(item.get("body", "{}"))
-                
-                all_header.append(item.get('headers', []))
+                all_headers.append(item.get('headers', []))
                 
                 if result_item["status_code"] == 200:
                     result_item["data"] = body_json
+                    result_item["error"] = None # Xóa lỗi mặc định nếu thành công
                 else:
                     result_item["error"] = body_json.get("error", body_json)
             except json.JSONDecodeError:
                 result_item["error"] = {"message": "Body không phải JSON."}
         
         processed_results.append(result_item)
-        
-        
 
     # --- 2. THỰC HIỆN RETRY ---
-    # Hàm này sẽ tìm các item có lỗi 5xx trong `processed_results`,
-    # gửi lại request, và cập nhật trực tiếp các item đó với kết quả mới.
-    successful_retries, failed_retries = _retry_failed_requests(
+    # Giả sử hàm _retry_failed_requests tồn tại và hoạt động đúng
+    _retry_failed_requests(
         processed_results=processed_results,
         access_token=access_token,
         api_version=api_version,
         request_id=request_id
     )
 
-    # --- 3. GHI LOG KẾT QUẢ CUỐI CÙNG (SAU KHI ĐÃ RETRY) ---
+    # --- 3. GHI LOG ---
     logger.info(
         f"Logging final status for {len(processed_results)} sub-requests.", 
         extra={"request_id": request_id, "log.type": "final_logging"}
     )
     for result in processed_results:
-        # Lấy lại response thô ban đầu từ Facebook để truyền vào hàm log
         original_fb_item = data[result.get("request_index")]
-        
-        # Gọi hàm log gốc của bạn với dữ liệu cuối cùng
         log_sub_request(
             request_id=request_id,
             request_index=result.get("request_index"),
             fb_response_item=original_fb_item,
-            processed_item=result 
+            processed_item=result
         )
 
-    # Cập nhật lại bộ đếm để trả về
+    # --- 4. TẠO SUMMARY CHO BATCH NÀY ---
     success_count = len([r for r in processed_results if r["status_code"] == 200])
     error_count = len(processed_results) - success_count
     summary = {"success_count": success_count, "error_count": error_count}
 
-    if get_header:
-        return processed_results, summary, all_header
-    
-    return processed_results, summary
+    return processed_results, summary, all_headers
 
+
+def send_batch_to_facebook(
+    relative_urls: List[str],
+    access_token: str,
+    request_id: str,
+    api_version: str = API_VERSION, # API_VERSION,
+    timeout_sec: int = 120,
+    get_header: bool = False
+) -> List[Dict[str, Any]]:
+    """
+    [PHIÊN BẢN CUỐI CÙNG]
+    Gửi batch request đến Facebook, tự động chia thành các chunk nhỏ hơn 50 nếu cần.
+    Thực hiện retry cho các lỗi tạm thời và GHI LOG KẾT QUẢ CUỐI CÙNG.
+    """
+    if not access_token: raise ValueError("Access token không hợp lệ.")
+    if not relative_urls: return ([], {"success_count": 0, "error_count": 0}) if not get_header else ([], {"success_count": 0, "error_count": 0}, [])
+
+    BATCH_SIZE = 50
+    
+    # Khởi tạo các biến để tổng hợp kết quả từ tất cả các chunk
+    all_processed_results = []
+    all_headers = []
+    final_summary = {"success_count": 0, "error_count": 0}
+
+    # Chia danh sách URL thành các chunk và xử lý từng chunk
+    for i in range(0, len(relative_urls), BATCH_SIZE):
+        chunk_urls = relative_urls[i:i + BATCH_SIZE]
+        
+        logger.info(f"Sending chunk {i//BATCH_SIZE + 1}/{(len(relative_urls) - 1)//BATCH_SIZE + 1} with {len(chunk_urls)} URLs.", extra={"request_id": request_id})
+
+        try:
+            # Gọi hàm helper để xử lý một batch
+            chunk_results, chunk_summary, chunk_headers = _send_single_batch_to_facebook(
+                relative_urls=chunk_urls,
+                access_token=access_token,
+                request_id=request_id,
+                api_version=api_version,
+                timeout_sec=timeout_sec
+            )
+
+            # Điều chỉnh `request_index` để nó chính xác trên toàn bộ danh sách
+            for result in chunk_results:
+                result["request_index"] += i
+            
+            # Gộp kết quả của chunk vào kết quả tổng
+            all_processed_results.extend(chunk_results)
+            all_headers.extend(chunk_headers)
+            final_summary["success_count"] += chunk_summary["success_count"]
+            final_summary["error_count"] += chunk_summary["error_count"]
+
+        except Exception as e:
+            # Nếu một chunk thất bại hoàn toàn, tạo các bản ghi lỗi cho tất cả URL trong chunk đó
+            logger.error(f"Chunk starting at index {i} failed entirely: {e}", extra={"request_id": request_id})
+            for url_index, url in enumerate(chunk_urls):
+                error_result = {
+                    "request_index": i + url_index,
+                    "requested_url": url.lstrip("/"),
+                    "status_code": 500, # Giả định lỗi hệ thống
+                    "data": None,
+                    "error": {"message": f"Batch request failed: {e}"},
+                    "was_retried": False
+                }
+                all_processed_results.append(error_result)
+                final_summary["error_count"] += 1
+    
+    # Sắp xếp lại kết quả cuối cùng theo request_index để đảm bảo thứ tự
+    all_processed_results.sort(key=lambda x: x["request_index"])
+
+    # TODO: Logic ghi log và retry có thể được thực hiện ở đây trên `all_processed_results` nếu muốn
+    # Ví dụ: bạn có thể di chuyển vòng lặp log từ hàm helper ra đây để log một lần duy nhất.
+
+    if get_header:
+        return all_processed_results, final_summary, all_headers
+    
+    return all_processed_results, final_summary

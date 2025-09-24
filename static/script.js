@@ -66,22 +66,28 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     function parseLogTimestamp(asctime) {
-        if (!asctime) return null;
+        if (!asctime) return null;
 
-        // Bước 1: Thay thế dấu phẩy bằng dấu chấm.
-        // "2025-09-15 14:37:39,384" -> "2025-09-15 14:37:39.384"
-        let parsableString = asctime.replace(',', '.');
+        // Bước 1: Thay thế dấu phẩy bằng dấu chấm.
+        let parsableString = asctime.replace(',', '.');
 
-        // Bước 2: Thay thế khoảng trắng đầu tiên (giữa ngày và giờ) bằng chữ 'T'.
-        // "2025-09-15 14:37:39.384" -> "2025-09-15T14:37:39.384"
-        parsableString = parsableString.replace(' ', 'T');
+        // Bước 2: Thay thế khoảng trắng giữa ngày và giờ bằng chữ 'T'.
+        parsableString = parsableString.replace(' ', 'T');
 
-        // Bây giờ chuỗi đã ở định dạng được hỗ trợ toàn cầu.
-        const dateObj = new Date(parsableString);
+        // Bước 3: Tạo đối tượng Date từ chuỗi đã định dạng.
+        const dateObj = new Date(parsableString);
+        
+        // Kiểm tra xem việc parse có thành công không.
+        if (isNaN(dateObj)) {
+            return null;
+        }
 
-        // Kiểm tra lại lần cuối xem parse có thành công không.
-        return isNaN(dateObj) ? null : dateObj;
-    }
+        // === LOGIC MỚI: Cộng thêm 7 giờ để điều chỉnh múi giờ ===
+        dateObj.setHours(dateObj.getHours() + 7);
+        // =========================================================
+
+        return dateObj;
+    }
 
     function categorizeUrl(url) {
         if (!url) return 'Unknown';
@@ -203,7 +209,11 @@ document.addEventListener('DOMContentLoaded', function () {
                     eta = buc[accId][0].estimated_time_to_regain_access;
                 }
             } catch (e) {}
+
+            const logTime = parseLogTimestamp(log.asctime);
+            const formattedTime = formatTimestamp(logTime);
             return `<tr>
+                <td>${formattedTime}</td>
                 <td>${log.requested_url || 'N/A'}</td>
                 <td style="text-align: center;">${log.status_code || 'N/A'}</td>
                 <td style="text-align: right;">${log.duration_ms?.toFixed(0) || 'N/A'}</td>
