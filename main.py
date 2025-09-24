@@ -217,27 +217,27 @@ async def get_logs():
 
     return all_log_entries
         
-import uvicorn
-from pyngrok import ngrok
-if __name__ == "__main__":
-    # uvicorn.run("test:app", host = "0.0.0.0", port = 8001)
-    port = 8001
+# import uvicorn
+# from pyngrok import ngrok
+# if __name__ == "__main__":
+#     # uvicorn.run("test:app", host = "0.0.0.0", port = 8001)
+#     port = 8001
     
-    try:
-        # Mở một tunnel HTTP tới cổng 8001
+#     try:
+#         # Mở một tunnel HTTP tới cổng 8001
 
-        public_url = ngrok.connect(port, "http")
-        print("="*50)
-        print(f" * Ngrok tunnel đang chạy tại: {public_url}")
-        print(f" * Uvicorn đang chạy trên http://127.0.0.1:{port}")
-        print("="*50)
+#         public_url = ngrok.connect(port, "http")
+#         print("="*50)
+#         print(f" * Ngrok tunnel đang chạy tại: {public_url}")
+#         print(f" * Uvicorn đang chạy trên http://127.0.0.1:{port}")
+#         print("="*50)
         
-        # Chạy uvicorn. Lưu ý: truyền đối tượng 'app' trực tiếp
-        uvicorn.run(app, host="0.0.0.0", port=port)
+#         # Chạy uvicorn. Lưu ý: truyền đối tượng 'app' trực tiếp
+#         uvicorn.run(app, host="0.0.0.0", port=port)
         
-    except Exception as e:
-        print(f"Lỗi: {e}")
-    finally:
-        # Ngắt kết nối ngrok khi ứng dụng dừng
-        ngrok.disconnect(public_url.public_url)
-        print("Đã đóng kết nối ngrok.")
+#     except Exception as e:
+#         print(f"Lỗi: {e}")
+#     finally:
+#         # Ngắt kết nối ngrok khi ứng dụng dừng
+#         ngrok.disconnect(public_url.public_url)
+#         print("Đã đóng kết nối ngrok.")
