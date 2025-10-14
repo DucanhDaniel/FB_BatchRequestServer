@@ -23,4 +23,4 @@ EXPOSE 8010
 # Bước 6: Thiết lập lệnh mặc định để chạy ứng dụng
 # [SỬA ĐỔI] Giả định file chính của bạn là 'main.py' và app instance là 'app'
 # CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8001"]
-CMD ["gunicorn", "-w", "1", "-k", "uvicorn.workers.UvicornWorker", "main:app", "--bind", "0.0.0.0:8010"]
+CMD ["gunicorn", "-w", "5", "-k", "uvicorn.workers.UvicornWorker", "main:app", "--bind", "0.0.0.0:8010"]
