@@ -5,12 +5,12 @@ services:
     image: phamducanh2k5/fb_batch_request_server:latest
     container_name: fastapi_server_8010
     environment:
-      - LOG_DIR=/code/app/logs
+      - LOG_DIR=/app/logs
     volumes:
       # Mount thư mục logs để app có thể ghi log
-      - ./logs:/code/app/logs
+      - ./logs:/app/logs
       # Mount thư mục static để app phục vụ dashboard
-      - ./static:/code/static
+      - ./static:/app/static
     networks:
       - app-net
     healthcheck:
