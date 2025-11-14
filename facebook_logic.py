@@ -1,6 +1,6 @@
 import json
 import requests
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from collections import defaultdict
 from app_logging import log_sub_request, setup_logging
 import logging
@@ -19,7 +19,7 @@ def _send_single_request(
 ) -> Dict[str, Any]:
     """Gửi một yêu cầu GET duy nhất và trả về kết quả đã được chuẩn hóa."""
     # ... (Hàm này giữ nguyên như phiên bản trước)
-    api_url = f"https://graph.facebook.com/{api_version}/{relative_url}/"
+    api_url = f"https://graph.facebook.com/{api_version}/{relative_url}"
     params = {"access_token": access_token}
     try:
         resp = requests.get(api_url, params=params, timeout=timeout_sec)
@@ -95,7 +95,9 @@ def _retry_failed_requests(
     processed_results: List[Dict[str, Any]],
     access_token: str,
     api_version: str,
-    request_id: str
+    request_id: str,
+    email: Optional[str],
+    client_ip: Optional[str]
 ) -> tuple[int, int]:
     """
     [HÀM MỚI] Tìm và gửi lại các sub-request thất bại (lỗi 500).
@@ -139,7 +141,9 @@ def _retry_failed_requests(
                     "request_id": request_id,
                     "request_index": original_index,
                     "new_status_code": retry_result['status_code'],
-                    "new_error": retry_result['error']
+                    "new_error": retry_result['error'],
+                    "email":email,
+                    "client_ip":client_ip
                 }
             )
             
@@ -152,6 +156,8 @@ def _send_single_batch_to_facebook(
     request_id: str,
     api_version: str,
     timeout_sec: int,
+    email: Optional[str] = None,
+    client_ip: Optional[str] = None
 ):
     """
     [HÀM HELPER] Gửi một batch duy nhất (<= 50 requests).
@@ -190,9 +196,12 @@ def _send_single_batch_to_facebook(
             "request_index": i,
             "requested_url": normalized_urls[i],
             "status_code": item.get("code") if item else 500,
+            # "status_code":500,
             "data": None,
             "error": {"message": "Kết quả NULL từ Facebook"} if not item else None,
-            "was_retried": False
+            "was_retried": False,
+            "email":email,
+            "client_ip":client_ip
         }
         if item:
             try:
@@ -215,7 +224,9 @@ def _send_single_batch_to_facebook(
         processed_results=processed_results,
         access_token=access_token,
         api_version=api_version,
-        request_id=request_id
+        request_id=request_id,
+        email=email,
+        client_ip=client_ip,
     )
 
     # --- 3. GHI LOG ---
@@ -229,7 +240,9 @@ def _send_single_batch_to_facebook(
             request_id=request_id,
             request_index=result.get("request_index"),
             fb_response_item=original_fb_item,
-            processed_item=result
+            processed_item=result,
+            email=email,
+            client_ip=client_ip
         )
 
     # --- 4. TẠO SUMMARY CHO BATCH NÀY ---
@@ -244,12 +257,13 @@ def send_batch_to_facebook(
     relative_urls: List[str],
     access_token: str,
     request_id: str,
+    email: Optional[str] = None,
+    client_ip: Optional[str] = None,
     api_version: str = API_VERSION, # API_VERSION,
     timeout_sec: int = 120,
-    get_header: bool = False
+    get_header: bool = False,
 ) -> List[Dict[str, Any]]:
     """
-    [PHIÊN BẢN CUỐI CÙNG]
     Gửi batch request đến Facebook, tự động chia thành các chunk nhỏ hơn 50 nếu cần.
     Thực hiện retry cho các lỗi tạm thời và GHI LOG KẾT QUẢ CUỐI CÙNG.
     """
@@ -276,7 +290,9 @@ def send_batch_to_facebook(
                 access_token=access_token,
                 request_id=request_id,
                 api_version=api_version,
-                timeout_sec=timeout_sec
+                timeout_sec=timeout_sec,
+                email = email,
+                client_ip = client_ip
             )
 
             # Điều chỉnh `request_index` để nó chính xác trên toàn bộ danh sách
@@ -295,6 +311,8 @@ def send_batch_to_facebook(
             for url_index, url in enumerate(chunk_urls):
                 error_result = {
                     "request_index": i + url_index,
+                    "client_ip":client_ip,
+                    "email":email,
                     "requested_url": url.lstrip("/"),
                     "status_code": 500, # Giả định lỗi hệ thống
                     "data": None,
@@ -318,7 +336,9 @@ def send_batch_to_facebook(
 if (__name__ == "__main__"):
     res = send_batch_to_facebook(
         relative_urls=["act_650248897235348/insights?level=campaign&time_increment=1&action_report_time=conversion&fields=campaign_id%2Ccampaign_name%2Caccount_id%2Caccount_name%2Cdate_start%2Cdate_stop%2Cspend%2Cimpressions%2Creach%2Cclicks%2Ccpc%2Ccpm%2Cctr%2Cfrequency%2Cactions%2Ccost_per_action_type%2Caction_values%2Cpurchase_roas&time_range=%7B%22since%22%3A%222025-10-01%22%2C%22until%22%3A%222025-10-13%22%7D&limit=200"],
-        access_token="EAAYNtPF5VL0BPe5S3ZCzjlXn6CDEyBcNbIEYZCbPL9bLZCdVJU5Nwp9d2kusZBmmdX1OlHZBVFZAZBem7qTbhDmamMdqtPGAM5nksepeugOF6N0CR6RpZBL6nbPxDNoSzwf9jVWnBilOvm2sogIr8dNNBwEgD1OsWGZC5kR5lkssdGdXWZC12uAZCmOBrK9tFYb",
-        request_id="1"
+        access_token="EAARclPZAoBi8BPnyXf3nkFaLQBHnSZC5MJAYrYkEZAiLVka5EMLIuIJvUVpVHBaWZBe7AmfkzPAYJRZA3Ds8eZBpH8hi41gpfXJEZCGUt66Ilmpwha8hQEuSh8JXhPTpvseQZBlmm87mPzZCPPrZBatlYsM93qZAjCNsiYS7lV2p6GTHWgnI3ZBxdXdtZAIQR02tQ24Fin5gm2hky",
+        request_id="1",
+        email="ahihi@gmail.com",
+        client_ip="123123"
     )
     print(res)

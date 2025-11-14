@@ -13,7 +13,6 @@ import logging
 
 
 # --- CẤU HÌNH ---
-API_VERSION = "v23.0"
 REQUEST_TIMEOUT_SECONDS = 600.0
 LOG_DIR = os.getenv("LOG_DIR", "logs")
 setup_logging()
@@ -69,7 +68,9 @@ async def process_batch_request_post(payload: BatchRequest = Body(...),  http_re
             send_batch_to_facebook, # Tên hàm đồng bộ, không có ()
             payload.relative_urls,  # Các đối số cho hàm đó
             payload.access_token,
-            request_id
+            request_id,
+            payload.email,
+            client_ip
             # Thêm các đối số khác nếu cần...
         )
 

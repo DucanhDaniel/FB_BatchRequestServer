@@ -17,6 +17,12 @@ class BatchRequest(BaseModel):
         ]
     )
     
+    email: Optional[str] = Field(
+        "None",
+        description="Email liên hệ (tuỳ chọn).",
+        examples=["user@example.com"]
+    )
+    
 class RateLimitRequest(BaseModel):
     access_token: str = Field(..., description="Access Token Facebook.", examples=["EAAB..."])
     ad_account_ids: List[str] = Field(..., description="Danh sách ID tài khoản quảng cáo.", examples=["act_123456789", "act_987654321"])

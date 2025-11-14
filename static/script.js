@@ -1,3 +1,4 @@
+
 document.addEventListener('DOMContentLoaded', function () {
     // === DOM Elements ===
     const retryAttemptsTbody = document.querySelector('#retryAttemptsTable tbody');
@@ -52,8 +53,6 @@ document.addEventListener('DOMContentLoaded', function () {
         }
 
         const year = dateObj.getFullYear();
-        // getMonth() trả về từ 0-11, nên cần +1.
-        // padStart(2, '0') để đảm bảo luôn có 2 chữ số (VD: 9 -> "09").
         const month = String(dateObj.getMonth() + 1).padStart(2, '0');
         const day = String(dateObj.getDate()).padStart(2, '0');
         
@@ -61,33 +60,64 @@ document.addEventListener('DOMContentLoaded', function () {
         const minutes = String(dateObj.getMinutes()).padStart(2, '0');
         const seconds = String(dateObj.getSeconds()).padStart(2, '0');
 
-        // Lưu ý: Dùng dấu ':' theo yêu cầu của bạn
+        // Hiển thị ngày và giờ theo múi giờ local của trình duyệt (UTC+7)
         return `${year}:${month}:${day}<br>${hours}:${minutes}:${seconds}`;
     }
 
+    // function parseLogTimestamp(asctime) {
+    //     if (!asctime) return null;
+
+    //     // Bước 1: Thay thế dấu phẩy bằng dấu chấm.
+    //     let parsableString = asctime.replace(',', '.');
+
+    //     // Bước 2: Thay thế khoảng trắng giữa ngày và giờ bằng chữ 'T'.
+    //     parsableString = parsableString.replace(' ', 'T');
+
+    //     // === SỬA LỖI MÚI GIỜ ===
+    //     // Thêm 'Z' để Date.parse() biết đây là giờ UTC, không phải giờ địa phương.
+    //     if (!parsableString.endsWith('Z')) {
+    //         parsableString += 'Z';
+    //     }
+    //     // ========================
+
+    //     // Bước 3: Tạo đối tượng Date. Nó sẽ lưu trữ chính xác thời điểm UTC.
+    //     const dateObj = new Date(parsableString);
+        
+    //     if (isNaN(dateObj)) {
+    //         return null;
+    //     }
+
+    //     // Bỏ logic .setHours() cũ đi. Hàm formatTimestamp
+    //     // sẽ tự động dùng múi giờ +7 của trình duyệt để hiển thị.
+    //     return dateObj;
+    // }
     function parseLogTimestamp(asctime) {
-        if (!asctime) return null;
+        if (!asctime) return null;
 
-        // Bước 1: Thay thế dấu phẩy bằng dấu chấm.
-        let parsableString = asctime.replace(',', '.');
+        // Bước 1: Thay thế dấu phẩy bằng dấu chấm.
+        let parsableString = asctime.replace(',', '.');
 
-        // Bước 2: Thay thế khoảng trắng giữa ngày và giờ bằng chữ 'T'.
-        parsableString = parsableString.replace(' ', 'T');
+        // Bước 2: Thay thế khoảng trắng giữa ngày và giờ bằng chữ 'T'.
+        parsableString = parsableString.replace(' ', 'T');
 
-        // Bước 3: Tạo đối tượng Date từ chuỗi đã định dạng.
-        const dateObj = new Date(parsableString);
-        
-        // Kiểm tra xem việc parse có thành công không.
-        if (isNaN(dateObj)) {
-            return null;
-        }
+        // === SỬA LỖI MÚI GIỜ ===
+        // Bỏ dòng thêm 'Z'. 
+        // Giờ đây "2025-11-15T00:13:07.961" sẽ được Date() hiểu là GIỜ LOCAL (UTC+7),
+        // chứ không phải giờ UTC.
+        // if (!parsableString.endsWith('Z')) {
+        //     parsableString += 'Z';
+        // }
+        // ========================
 
-        // === LOGIC MỚI: Cộng thêm 7 giờ để điều chỉnh múi giờ ===
-        dateObj.setHours(dateObj.getHours() + 7);
-        // =========================================================
+        // Bước 3: Tạo đối tượng Date.
+        const dateObj = new Date(parsableString);
+        
+        if (isNaN(dateObj)) {
+            return null;
+        }
 
-        return dateObj;
-    }
+        return dateObj;
+    }
 
     function categorizeUrl(url) {
         if (!url) return 'Unknown';
@@ -120,21 +150,19 @@ document.addEventListener('DOMContentLoaded', function () {
             const logs = await response.json();
             const allSubRequests = logs.filter(log => log['log.type'] === 'sub_request');
             
-            // Nếu không có log nào thì không làm gì cả
-            if (allSubRequests.length === 0) {
+            if (allSubRequests.length === 0 && logs.length === 0) {
                 return;
             }
             
-            // Gọi hàm cập nhật giao diện
-            updateDashboard(allSubRequests);
+            updateDashboard(logs, allSubRequests);
 
         } catch (error) {
             console.error('Failed to fetch and render log data:', error);
         }
     }
 
-    function updateDashboard(allSubRequests) {
-        // --- 1. Tính toán dữ liệu tổng hợp ---
+    function updateDashboard(logs, allSubRequests) {
+        // --- 1. Tính toán dữ liệu tổng hợp (dùng allSubRequests) ---
         let successCount = 0;
         let totalDuration = 0;
         let maxAppUsage = 0;
@@ -172,7 +200,6 @@ document.addEventListener('DOMContentLoaded', function () {
         pieChart.update();
 
         const oneHourAgo = new Date(new Date().getTime() - 60 * 60 * 10000);
-        // const recentLogs = allSubRequests.filter(log => new Date(log.asctime) >= oneHourAgo);
         const recentLogs = allSubRequests.filter(log => {
             const logTime = parseLogTimestamp(log.asctime);
             return logTime && logTime >= oneHourAgo;
@@ -197,7 +224,7 @@ document.addEventListener('DOMContentLoaded', function () {
         costByEndpointChart.data.datasets[1].data = costLabels.map(label => costByEndpoint[label].failed);
         costByEndpointChart.update();
 
-        // --- 4. Cập nhật các bảng ---
+        // --- 4. Cập nhật các bảng (dùng allSubRequests) ---
         const recentTableLogs = allSubRequests.slice(-100).reverse();
         
         performanceTbody.innerHTML = recentTableLogs.map(log => {
@@ -214,7 +241,9 @@ document.addEventListener('DOMContentLoaded', function () {
             const formattedTime = formatTimestamp(logTime);
             return `<tr>
                 <td>${formattedTime}</td>
-                <td>${log.requested_url || 'N/A'}</td>
+                <td>${log.email || 'N/A'}</td>
+                <td>${log.client_ip || 'N/A'}</td>
+                <td style="word-break: break-all;">${log.requested_url || 'N/A'}</td>
                 <td style="text-align: center;">${log.status_code || 'N/A'}</td>
                 <td style="text-align: right;">${log.duration_ms?.toFixed(0) || 'N/A'}</td>
                 <td style="text-align: right;">${formatPercentage(log.rate_limit?.app_id_util_pct)}</td>
@@ -225,49 +254,106 @@ document.addEventListener('DOMContentLoaded', function () {
 
         failedRequestsTbody.innerHTML = recentTableLogs.filter(log => log.status_code !== 200).map(log => {
             const errorMessage = log.error?.message || JSON.stringify(log.error) || 'Unknown error';
-            // 1. Parse timestamp bằng hàm helper như cũ
             const logTime = parseLogTimestamp(log.asctime);
-            
-            // 2. SỬ DỤNG HÀM MỚI để định dạng đối tượng Date 'logTime'
             const formattedTime = formatTimestamp(logTime);
 
             return `<tr>
                 <td>${formattedTime}</td>
-                <td>${log.requested_url || 'N/A'}</td>
+                <td>${log.email || 'N/A'}</td>
+                <td>${log.client_ip || 'N/A'}</td>
+                <td style="word-break: break-all;">${log.requested_url || 'N/A'}</td>
                 <td style="text-align: center; color: #e74c3c; font-weight: bold;">${log.status_code || 'N/A'}</td>
                 <td>${errorMessage}</td>
             </tr>`;
         }).join('');
 
-        const retryLogs = allSubRequests
-            .filter(log => log.message && log.message.includes('RETRY'))
-            .slice(-100)
-            .reverse();
+        
+        // === SỬA LỖI LOGIC BẢNG RETRY ATTEMPTS ===
+        
+        // 1. Lọc tất cả các log liên quan đến retry
+        const allRetryLogs = logs.filter(log => 
+            log.message && 
+            (log.message.includes('Retrying sub-request') || log.message.includes('Retry for sub-request'))
+        );
 
-        // cập nhật bảng recent tried 
-        retryAttemptsTbody.innerHTML = retryLogs.map(log => {
-            const logTime = parseLogTimestamp(log.asctime);
-            const formattedTime = formatTimestamp(logTime);
-            const finalStatus = log.status_code;
+        // 2. Nhóm các log lại theo composite key (request_id + request_index)
+        const groupedRetries = new Map();
+
+        for (const log of allRetryLogs) {
+            // Dùng request_index làm key (giả sử request_id luôn giống nhau trong 1 lần load)
+            // Nếu có nhiều request_id, dùng key: `${log.request_id}-${log.request_index}`
+            const key = log.request_index; 
             
-            let outcome = 'Unknown';
-            let outcomeClass = '';
-
-            if (log.message.includes('RETRY SUCCESS')) {
-                outcome = 'Success';
-                outcomeClass = 'status-success';
-            } else if (log.message.includes('RETRY FAILED')) {
-                outcome = 'Failed';
-                outcomeClass = 'status-failed';
+            // Khởi tạo nếu chưa có
+            if (!groupedRetries.has(key)) {
+                groupedRetries.set(key, {
+                    timestamp: parseLogTimestamp(log.asctime), // Dùng timestamp của log đầu tiên
+                    url: 'N/A',
+                    email: 'N/A',
+                    client_ip: 'N/A',
+                    finalStatus: 'N/A',
+                    outcome: 'Unknown',
+                    outcomeClass: ''
+                });
             }
 
+            const attempt = groupedRetries.get(key);
+
+            // 3. Cập nhật thông tin dựa trên loại log
+            if (log.message.includes('Retrying sub-request')) {
+                // Đây là log "bắt đầu", nó có URL
+                try {
+                    attempt.url = log.message.split(': ')[1];
+                } catch (e) {
+                    attempt.url = 'Error parsing URL';
+                }
+                // Nếu chưa có kết quả (FAILED/SUCCESS), thì set là Retrying
+                if (attempt.outcome === 'Unknown') {
+                    attempt.outcome = 'Retrying';
+                }
+                // Ưu tiên timestamp của log này (log bắt đầu)
+                attempt.timestamp = parseLogTimestamp(log.asctime);
+
+            } else if (log.message.includes('FAILED')) {
+                // Đây là log "thất bại", nó có email, ip, status
+                attempt.outcome = 'Failed';
+                attempt.outcomeClass = 'status-failed';
+                attempt.finalStatus = log.new_status_code || 'N/A';
+                attempt.email = log.email || 'N/A';
+                attempt.client_ip = log.client_ip || 'N/A';
+                // Ghi đè timestamp bằng log kết thúc
+                attempt.timestamp = parseLogTimestamp(log.asctime);
+
+            } else if (log.message.includes('SUCCEEDED')) {
+                // Đây là log "thành công"
+                attempt.outcome = 'Success';
+                attempt.outcomeClass = 'status-success';
+                attempt.finalStatus = 200; // Mặc định là 200
+                // Log SUCCEEDED không có email/ip (theo code Python)
+                // nên ta không ghi đè email/ip
+                attempt.timestamp = parseLogTimestamp(log.asctime);
+            }
+        }
+
+        // 4. Sắp xếp và build HTML
+        // Chuyển Map values thành Array
+        const sortedAttempts = Array.from(groupedRetries.values())
+            .sort((a, b) => b.timestamp - a.timestamp) // Sắp xếp mới nhất lên đầu
+            .slice(0, 100); // Giới hạn 100
+
+        retryAttemptsTbody.innerHTML = sortedAttempts.map(attempt => {
+            const formattedTime = formatTimestamp(attempt.timestamp);
+            
             return `<tr>
                 <td>${formattedTime}</td>
-                <td>${log.requested_url || 'N/A'}</td>
-                <td style="text-align: center;">${finalStatus}</td>
-                <td class="${outcomeClass}" style="text-align: center;">${outcome}</td>
+                <td>${attempt.email}</td>
+                <td>${attempt.client_ip}</td>
+                <td style="word-break: break-all;">${attempt.url}</td>
+                <td style="text-align: center;">${attempt.finalStatus}</td>
+                <td class="${attempt.outcomeClass}" style="text-align: center;">${attempt.outcome}</td>
             </tr>`;
         }).join('');
+        // === KẾT THÚC LOGIC MỚI ===
     }
 
     // Chạy lần đầu và đặt lịch cập nhật

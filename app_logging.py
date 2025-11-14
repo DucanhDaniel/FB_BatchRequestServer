@@ -10,7 +10,7 @@ import logging.config
 import os
 import json
 import time
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 
 # --- CẤU HÌNH LOGGER ---
 
@@ -98,7 +98,9 @@ def log_sub_request(
     request_id: str,
     request_index: int,
     fb_response_item: Dict[str, Any],
-    processed_item: Dict[str, Any]
+    processed_item: Dict[str, Any],
+    email: Optional[str],
+    client_ip: Optional[str]
 ):
     """
     Ghi log chi tiết cho một sub-request sau khi được xử lý.
@@ -133,7 +135,9 @@ def log_sub_request(
             "app_call_count": app_usage.get("call_count"),
         },
         "fb_trace_id": None,
-        "error": None
+        "error": None,
+        "email": email,
+        "client_ip":client_ip
     }
 
     # Trích xuất thông tin lỗi nếu có
