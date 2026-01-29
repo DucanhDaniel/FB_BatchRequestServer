@@ -38,5 +38,4 @@ networks:
   app-net:
     driver: bridge
 
-# Không còn volume của elasticsearch nữa
 volumes: {}

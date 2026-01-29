@@ -5,6 +5,11 @@ from collections import defaultdict
 from app_logging import log_sub_request, setup_logging
 import logging
 
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
 # --- CẤU HÌNH ---
 API_VERSION = "v24.0"
 setup_logging()
@@ -100,7 +105,7 @@ def _retry_failed_requests(
     client_ip: Optional[str]
 ) -> tuple[int, int]:
     """
-    [HÀM MỚI] Tìm và gửi lại các sub-request thất bại (lỗi 500).
+    Tìm và gửi lại các sub-request thất bại (lỗi 500).
     Cập nhật trực tiếp vào list processed_results.
     Trả về số lượng retry thành công và thất bại.
     """
@@ -327,6 +332,8 @@ def send_batch_to_facebook(
 
     # TODO: Logic ghi log và retry có thể được thực hiện ở đây trên `all_processed_results` nếu muốn
     # Ví dụ: bạn có thể di chuyển vòng lặp log từ hàm helper ra đây để log một lần duy nhất.
+    throttling_info = summarize_rate_limits(all_headers)
+    final_summary["rate_limits"] = throttling_info
 
     if get_header:
         return all_processed_results, final_summary, all_headers
@@ -334,11 +341,11 @@ def send_batch_to_facebook(
     return all_processed_results, final_summary
 
 if (__name__ == "__main__"):
-    res = send_batch_to_facebook(
-        relative_urls=["act_650248897235348/insights?level=campaign&time_increment=1&action_report_time=conversion&fields=campaign_id%2Ccampaign_name%2Caccount_id%2Caccount_name%2Cdate_start%2Cdate_stop%2Cspend%2Cimpressions%2Creach%2Cclicks%2Ccpc%2Ccpm%2Cctr%2Cfrequency%2Cactions%2Ccost_per_action_type%2Caction_values%2Cpurchase_roas&time_range=%7B%22since%22%3A%222025-10-01%22%2C%22until%22%3A%222025-10-13%22%7D&limit=200"],
-        access_token="EAARclPZAoBi8BPnyXf3nkFaLQBHnSZC5MJAYrYkEZAiLVka5EMLIuIJvUVpVHBaWZBe7AmfkzPAYJRZA3Ds8eZBpH8hi41gpfXJEZCGUt66Ilmpwha8hQEuSh8JXhPTpvseQZBlmm87mPzZCPPrZBatlYsM93qZAjCNsiYS7lV2p6GTHWgnI3ZBxdXdtZAIQR02tQ24Fin5gm2hky",
+    all_processed_results, final_summary = send_batch_to_facebook(
+        relative_urls=["act_650248897235348/insights?level=campaign&time_increment=1&action_report_time=conversion&fields=campaign_id%2Ccampaign_name%2Caccount_id%2Caccount_name%2Cdate_start%2Cdate_stop%2Cspend%2Cimpressions%2Creach%2Cclicks%2Ccpc%2Ccpm%2Cctr%2Cfrequency%2Cactions%2Ccost_per_action_type%2Caction_values%2Cpurchase_roas&time_range=%7B%22since%22%3A%222025-10-01%22%2C%22until%22%3A%222025-10-13%22%7D&limit=200", "act_948290596967304/insights?level=campaign&time_increment=1&action_report_time=conversion&fields=campaign_id%2Ccampaign_name%2Caccount_id%2Caccount_name%2Cdate_start%2Cdate_stop%2Cspend%2Cimpressions%2Creach%2Cclicks%2Ccpc%2Ccpm%2Cctr%2Cfrequency%2Cactions%2Ccost_per_action_type%2Caction_values%2Cpurchase_roas&time_range=%7B%22since%22%3A%222025-10-01%22%2C%22until%22%3A%222025-10-13%22%7D&limit=200"],
+        access_token=os.getenv("FACEBOOK_ACCESS_TOKEN"),
         request_id="1",
         email="ahihi@gmail.com",
         client_ip="123123"
     )
-    print(res)
+    print(final_summary)

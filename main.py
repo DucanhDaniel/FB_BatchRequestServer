@@ -47,7 +47,7 @@ async def process_batch_request_get(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Internal error: {str(e)}")
 
-# POST: khuyên dùng khi gửi nhiều URL (không bị giới hạn độ dài)
+# POST: khuyên dùng khi gửi nhiều URL 
 @app.post("/batch", summary="Gửi batch (POST) đến Facebook API")
 async def process_batch_request_post(payload: BatchRequest = Body(...),  http_request: Request = None):
     request_id = str(uuid.uuid4())
@@ -75,7 +75,7 @@ async def process_batch_request_post(payload: BatchRequest = Body(...),  http_re
         )
 
         # Bây giờ task là awaitable, ta có thể dùng wait_for như bình thường
-        results, summary = await asyncio.wait_for(task, timeout=REQUEST_TIMEOUT_SECONDS)
+        results, summary,  = await asyncio.wait_for(task, timeout=REQUEST_TIMEOUT_SECONDS)
         # results, summary = send_batch_to_facebook(
         #     relative_urls=payload.relative_urls,
         #     access_token=payload.access_token,
@@ -84,7 +84,7 @@ async def process_batch_request_post(payload: BatchRequest = Body(...),  http_re
         if summary["error_count"] == 0: status = "SUCCESS"
         elif summary["success_count"] > 0: status = "PARTIAL_FAILURE"
         else: status = "TOTAL_FAILURE"
-        return {"status": "success", "results": results}
+        return {"status": "success", "results": results, "summary": summary}
     except ValueError as e:
         status = "CLIENT_ERROR"
         raise HTTPException(status_code=400, detail=str(e))
