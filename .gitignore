@@ -11,6 +11,6 @@ wheels/
 
 .vscode
 
-
+logs/
 
 .env
